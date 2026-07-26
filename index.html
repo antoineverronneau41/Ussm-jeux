@@ -1971,285 +1971,148 @@ function nextGameRound(){
   else if(gameType === 'triangle') renderTriangle();
 }
 
-// ===== RONDO DIGITAL =====
+// ===== SHARED FIELD RENDERER =====
+function drawField(w,h){
+  let svg = '<svg viewBox="0 0 '+w+' '+h+'" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:380px;display:block;margin:0 auto;border-radius:8px;" id="game-svg">';
+  svg += '<rect width="'+w+'" height="'+h+'" fill="#1a6b2a" rx="8"/>';
+  svg += '<rect x="10" y="10" width="'+(w-20)+'" height="'+(h-20)+'" fill="none" stroke="rgba(255,255,255,0.25)" stroke-width="1.5"/>';
+  svg += '<line x1="10" y1="'+(h/2)+'" x2="'+(w-10)+'" y2="'+(h/2)+'" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>';
+  svg += '<rect x="'+(w/2-30)+'" y="2" width="60" height="12" fill="none" stroke="#fff" stroke-width="2" rx="2"/>';
+  svg += '<text x="'+(w/2)+'" y="9" text-anchor="middle" fill="rgba(255,255,255,0.4)" font-size="7" font-family="Arial">BUT</text>';
+  svg += '<rect x="'+(w/2-30)+'" y="'+(h-14)+'" width="60" height="12" fill="none" stroke="#fff" stroke-width="2" rx="2"/>';
+  svg += '<rect x="'+(w/2-50)+'" y="10" width="100" height="40" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>';
+  svg += '<text x="'+(w-18)+'" y="'+(h/2-5)+'" text-anchor="middle" fill="rgba(255,255,255,0.3)" font-size="14">↑</text>';
+  svg += '<text x="'+(w-18)+'" y="'+(h/2+12)+'" text-anchor="middle" fill="rgba(255,255,255,0.2)" font-size="7" font-family="Arial">ATT</text>';
+  return svg;
+}
+function drawP(x,y,color,label,click,idx){
+  let s='<circle cx="'+x+'" cy="'+y+'" r="14" fill="'+color+'" stroke="#fff" stroke-width="1.5"';
+  if(click) s+=' class="game-click" data-idx="'+idx+'" style="cursor:pointer"';
+  s+='/>';
+  if(label) s+='<text x="'+x+'" y="'+(y+4)+'" text-anchor="middle" fill="'+(color==='#c0392b'?'#fff':'#000')+'" font-size="8" font-weight="bold" font-family="Arial" style="pointer-events:none">'+label+'</text>';
+  return s;
+}
+
+// ===== RONDO =====
 const RONDO_LEVELS = [
-  { players:[[150,30],[270,80],[270,200],[150,270],[30,200],[30,80]], defenders:[[150,140]], ball:0, correct:3, hint:"Le défenseur est entre toi et la droite. Qui est le plus libre ?" },
-  { players:[[150,30],[270,80],[270,200],[150,270],[30,200],[30,80]], defenders:[[180,100]], ball:5, correct:4, hint:"Le défenseur couvre le centre. Joue côté opposé !" },
-  { players:[[150,30],[270,80],[270,200],[150,270],[30,200],[30,80]], defenders:[[100,150]], ball:1, correct:2, hint:"Le défenseur est à gauche. La passe à droite est libre." },
-  { players:[[150,30],[270,80],[270,200],[150,270],[30,200],[30,80]], defenders:[[200,150]], ball:4, correct:5, hint:"Évite le côté du défenseur !" },
-  { players:[[150,30],[270,80],[270,200],[150,270],[30,200],[30,80]], defenders:[[120,100],[180,200]], ball:0, correct:3, hint:"2 défenseurs ! Trouve la ligne de passe libre." },
-  { players:[[150,30],[270,80],[270,200],[150,270],[30,200],[30,80]], defenders:[[150,120],[100,200]], ball:1, correct:2, hint:"Le côté droit est ouvert." },
-  { players:[[150,30],[270,80],[270,200],[150,270],[30,200],[30,80]], defenders:[[160,80],[140,220]], ball:4, correct:0, hint:"Vise le joueur en haut, la ligne est dégagée." },
-  { players:[[150,30],[270,80],[270,200],[150,270],[30,200],[30,80]], defenders:[[130,130],[200,170]], ball:5, correct:0, hint:"Passe entre les 2 défenseurs si possible !" }
+  {players:[[150,40],[260,100],[260,220],[150,280],[40,220],[40,100]],defenders:[[180,160]],ball:0,correct:4,hint:"Le défenseur est décalé à droite → la ligne de passe vers la gauche (joueur 5) est libre. En rondo, joue toujours à l'opposé du pressing."},
+  {players:[[150,40],[260,100],[260,220],[150,280],[40,220],[40,100]],defenders:[[120,160]],ball:2,correct:1,hint:"Le défenseur couvre le côté gauche → les passes vers la droite sont ouvertes. Joue au joueur en haut à droite."},
+  {players:[[150,40],[260,100],[260,220],[150,280],[40,220],[40,100]],defenders:[[200,100]],ball:0,correct:5,hint:"Le défenseur est entre toi et le joueur en haut à droite → cette passe est coupée. Le joueur en bas à gauche a une ligne totalement dégagée."},
+  {players:[[150,40],[260,100],[260,220],[150,280],[40,220],[40,100]],defenders:[[100,220]],ball:3,correct:2,hint:"Le défenseur bloque ta gauche. Le joueur à droite en bas est libre — joue de son côté."},
+  {players:[[150,40],[260,100],[260,220],[150,280],[40,220],[40,100]],defenders:[[150,110],[150,210]],ball:5,correct:4,hint:"2 défenseurs alignés coupent les passes traversantes. Joue court à ton voisin direct en bas à gauche — c'est la seule ligne sûre."},
+  {players:[[150,40],[260,100],[260,220],[150,280],[40,220],[40,100]],defenders:[[200,150],[100,170]],ball:0,correct:3,hint:"Les 2 défenseurs couvrent les côtés. Le joueur en face de toi en bas est le seul avec une ligne de passe dégagée entre les 2 presseurs."},
+  {players:[[150,40],[260,100],[260,220],[150,280],[40,220],[40,100]],defenders:[[80,130]],ball:1,correct:2,hint:"Le défenseur est loin de toi, côté gauche. Ta passe vers le joueur juste en dessous (même côté droit) est libre et sûre."},
+  {players:[[150,40],[260,100],[260,220],[150,280],[40,220],[40,100]],defenders:[[200,200],[120,120]],ball:4,correct:5,hint:"Un défenseur couvre ta droite, l'autre le centre. Joue à ton voisin direct à gauche — la ligne est la seule dégagée."}
 ];
 
 function renderRondo(){
-  const level = RONDO_LEVELS[gameRound];
-  const header = document.getElementById('game-header');
-  header.textContent = `🔄 Rondo · Niveau ${gameRound+1}/${gameTotal}`;
-  document.getElementById('game-instruction').textContent = "Tu as le ballon. Clique sur le coéquipier à qui faire la passe.";
-  
-  const field = document.getElementById('game-field');
-  const w=300, h=300;
-  let svg = `<svg viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:350px;display:block;margin:0 auto;border-radius:8px;">`;
-  svg += `<rect width="${w}" height="${h}" fill="#1a6b2a" rx="8"/>`;
-  svg += `<circle cx="${w/2}" cy="${h/2}" r="100" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="1" stroke-dasharray="5,5"/>`;
-  
-  // Defenders
-  level.defenders.forEach(d=>{
-    svg += `<circle cx="${d[0]}" cy="${d[1]}" r="16" fill="#c0392b" stroke="#fff" stroke-width="1.5"/>`;
-    svg += `<text x="${d[0]}" y="${d[1]+4}" text-anchor="middle" fill="#fff" font-size="10" font-weight="bold">DEF</text>`;
+  var level=RONDO_LEVELS[gameRound];
+  document.getElementById('game-header').textContent='🔄 Rondo · Round '+(gameRound+1)+'/'+gameTotal;
+  document.getElementById('game-instruction').textContent="Tu as le ballon (⚽). Clique sur le coéquipier qui a la ligne de passe libre.";
+  var field=document.getElementById('game-field'),w=300,h=320;
+  var svg=drawField(w,h);
+  var bp=level.players[level.ball];
+  level.players.forEach(function(p,i){if(i===level.ball)return;svg+='<line x1="'+bp[0]+'" y1="'+bp[1]+'" x2="'+p[0]+'" y2="'+p[1]+'" stroke="rgba(255,255,200,0.15)" stroke-width="1" stroke-dasharray="4,4"/>';});
+  level.defenders.forEach(function(d){svg+=drawP(d[0],d[1],'#c0392b','DEF',false,0);});
+  level.players.forEach(function(p,i){
+    var isBall=(i===level.ball);
+    svg+=drawP(p[0],p[1],'#D4A017',isBall?'TOI':'',!isBall,i);
+    if(isBall) svg+='<circle cx="'+(p[0]+10)+'" cy="'+(p[1]-10)+'" r="5" fill="#fff" stroke="#333" stroke-width="1"/>';
   });
-  
-  // Players
-  level.players.forEach((p,i)=>{
-    const isBall = (i === level.ball);
-    const isClickable = (i !== level.ball);
-    svg += `<circle cx="${p[0]}" cy="${p[1]}" r="18" fill="#D4A017" stroke="${isBall?'#fff':'#333'}" stroke-width="${isBall?3:1.5}" ${isClickable?'class="game-click" data-idx="'+i+'"':''} style="${isClickable?'cursor:pointer':''}"/>`;
-    if(isBall){
-      svg += `<circle cx="${p[0]+12}" cy="${p[1]-12}" r="6" fill="#fff" stroke="#333" stroke-width="1"/>`;
-      svg += `<text x="${p[0]}" y="${p[1]-22}" text-anchor="middle" fill="#fff" font-size="9" font-weight="bold">TOI</text>`;
-    }
-  });
-  
-  // Pass lines (dotted from ball holder to others)
-  level.players.forEach((p,i)=>{
-    if(i === level.ball) return;
-    svg += `<line x1="${level.players[level.ball][0]}" y1="${level.players[level.ball][1]}" x2="${p[0]}" y2="${p[1]}" stroke="rgba(255,255,200,0.15)" stroke-width="1" stroke-dasharray="4,4"/>`;
-  });
-  
-  svg += '</svg>';
-  field.innerHTML = svg;
-  
-  // Timer
-  let timeLeft = 5;
-  const fb = document.getElementById('game-feedback');
-  fb.innerHTML = `<div class="activity-timer" id="game-timer">${timeLeft}</div>`;
-  
-  gameTimer = setInterval(()=>{
-    timeLeft--;
-    const t = document.getElementById('game-timer');
-    if(t){ t.textContent = timeLeft; if(timeLeft<=2) t.classList.add('urgent'); }
-    if(timeLeft<=0){
-      clearGameTimer();
-      showGameFeedback(false, level.correct, level.hint);
-    }
-  }, 1000);
-  
-  // Click handlers
-  field.querySelectorAll('.game-click').forEach(el=>{
-    el.addEventListener('click', function(){
-      clearGameTimer();
-      const idx = parseInt(this.dataset.idx);
-      const correct = (idx === level.correct);
-      if(correct) gameScore++;
-      showGameFeedback(correct, level.correct, level.hint);
-    });
-  });
+  svg+='</svg>';field.innerHTML=svg;
+  var timeLeft=6,fb=document.getElementById('game-feedback');
+  fb.innerHTML='<div class="activity-timer" id="game-timer">'+timeLeft+'</div>';
+  gameTimer=setInterval(function(){timeLeft--;var t=document.getElementById('game-timer');if(t){t.textContent=timeLeft;if(timeLeft<=2)t.classList.add('urgent');}if(timeLeft<=0){clearGameTimer();showGameFeedback(false,-1,level.hint);}},1000);
+  field.querySelectorAll('.game-click').forEach(function(el){el.addEventListener('click',function(){clearGameTimer();var idx=parseInt(this.dataset.idx);var correct=(idx===level.correct);if(correct)gameScore++;this.setAttribute('fill',correct?'#5FBE8B':'#e74c3c');if(!correct){var svgEl=field.querySelector('svg');var ns='http://www.w3.org/2000/svg';var c=document.createElementNS(ns,'circle');var cp=level.players[level.correct];c.setAttribute('cx',cp[0]);c.setAttribute('cy',cp[1]);c.setAttribute('r','18');c.setAttribute('fill','none');c.setAttribute('stroke','#5FBE8B');c.setAttribute('stroke-width','3');svgEl.appendChild(c);}showGameFeedback(correct,-1,level.hint);});});
 }
 
-// ===== OCCUPATION DES ZONES =====
-const ZONES_LEVELS = [
-  { grid:[3,4], teammates:[[0,0],[0,3],[2,1]], opponents:[[1,1],[1,2]], correct:[2,3], hint:"Place-toi loin des adversaires, dans une zone libre qui forme un triangle." },
-  { grid:[3,4], teammates:[[0,1],[2,0],[2,3]], opponents:[[1,0],[1,3]], correct:[0,3], hint:"La zone en haut à droite est libre et crée un bon triangle." },
-  { grid:[3,4], teammates:[[0,0],[0,2],[2,2]], opponents:[[1,1],[1,2]], correct:[2,0], hint:"Occupe le côté opposé aux adversaires." },
-  { grid:[3,4], teammates:[[0,1],[2,1],[2,3]], opponents:[[1,2],[0,3]], correct:[0,0], hint:"La zone libre en haut à gauche équilibre l'occupation." },
-  { grid:[3,4], teammates:[[0,0],[0,3],[1,1]], opponents:[[1,2],[2,2]], correct:[2,0], hint:"Va dans la zone basse gauche pour étirer le jeu." },
-  { grid:[3,4], teammates:[[2,0],[2,3],[0,2]], opponents:[[1,1],[1,3]], correct:[0,0], hint:"Occupe la zone libre en haut à gauche." },
-  { grid:[3,4], teammates:[[0,1],[1,0],[2,3]], opponents:[[1,2],[2,1]], correct:[0,3], hint:"La zone en haut à droite crée un bon triangle avec tes coéquipiers." },
-  { grid:[3,4], teammates:[[0,0],[2,2],[1,3]], opponents:[[1,0],[1,1]], correct:[2,0], hint:"Loin du pressing adverse, en bas à gauche." }
+// ===== DÉPLACEMENT SANS BALLON =====
+const MOVEMENT_LEVELS = [
+  {carrier:[70,200],mates:[[230,180]],opps:[[150,170],[150,120]],options:[[230,60,true,"Libre dans l'espace, ligne de passe dégagée vers le but"],[70,100,false,"Même côté que le porteur, pas de progression"],[150,250,false,"Tu recules au lieu d'aider"],[100,140,false,"Trop près du défenseur"]],hint:"Place-toi dans l'espace libre côté opposé aux défenseurs, avec une ligne de passe vers le porteur ET vers le but."},
+  {carrier:[150,250],mates:[[50,150]],opps:[[100,200],[200,200]],options:[[250,130,true,"Côté opposé aux adversaires, ligne de passe ouverte"],[150,200,false,"Juste entre les 2 défenseurs, trop risqué"],[100,250,false,"Derrière un défenseur, invisible pour le porteur"],[50,250,false,"À côté du porteur, aucune progression"]],hint:"Quand 2 adversaires sont au centre, va sur le côté libre pour créer une supériorité numérique."},
+  {carrier:[50,180],mates:[[200,220]],opps:[[120,160],[200,120]],options:[[150,100,true,"Entre les lignes adverses, face au jeu avec des options"],[120,250,false,"Tu te caches derrière le défenseur"],[50,100,false,"Même côté que le porteur, pas de largeur"],[200,60,false,"Trop loin, passe trop longue et risquée"]],hint:"Se placer entre les lignes crée un avantage : tu reçois face au jeu avec des options vers le but."},
+  {carrier:[250,260],mates:[[100,200]],opps:[[180,220],[150,160]],options:[[80,100,true,"Appel en profondeur côté faible, vers le but"],[250,200,false,"Même côté que le porteur"],[150,220,false,"Juste devant un défenseur"],[200,260,false,"À côté du porteur, aucune aide"]],hint:"L'appel en profondeur du côté opposé étire la défense et crée de l'espace."},
+  {carrier:[150,280],mates:[[50,180],[250,180]],opps:[[100,230],[200,230]],options:[[150,150,true,"Dans l'intervalle entre les 2 défenseurs, face au but"],[150,280,false,"À côté du porteur"],[50,280,false,"Tu descends au lieu de monter"],[250,280,false,"Tu descends au lieu de monter"]],hint:"Se placer dans l'intervalle entre 2 défenseurs — tu reçois entre les lignes avec le jeu devant toi."},
+  {carrier:[50,150],mates:[[250,200]],opps:[[150,130],[100,100]],options:[[200,80,true,"Derrière la ligne de pression, face au but, libre"],[50,80,false,"Même côté + un défenseur y est déjà"],[150,200,false,"Trop bas, pas de progression"],[100,150,false,"Juste à côté d'un défenseur"]],hint:"Quand les adversaires pressent d'un côté, rends-toi disponible de l'autre côté, derrière leur ligne de pression."},
+  {carrier:[150,180],mates:[[50,120]],opps:[[100,150],[200,150]],options:[[250,100,true,"Grand côté libre, tu étires la défense vers le but"],[150,150,false,"Entre les 2 défenseurs mais trop près d'eux"],[150,100,false,"Directement devant le porteur, pas d'angle"],[50,180,false,"Tu bloques ton coéquipier de gauche"]],hint:"Occuper le grand côté étire la défense et ouvre des espaces au centre — principe de largeur."},
+  {carrier:[250,220],mates:[[150,180]],opps:[[200,180],[150,130]],options:[[80,100,true,"Côté faible, en profondeur vers le but, loin de la pression"],[250,180,false,"Trop proche du porteur"],[200,130,false,"Juste à côté du défenseur"],[150,220,false,"Tu recules au lieu de créer de la profondeur"]],hint:"Le déplacement en profondeur côté opposé force la défense à s'étirer et crée du danger vers le but."}
 ];
 
 function renderZones(){
-  const level = ZONES_LEVELS[gameRound];
-  const header = document.getElementById('game-header');
-  header.textContent = `🟩 Zones · Niveau ${gameRound+1}/${gameTotal}`;
-  document.getElementById('game-instruction').textContent = "Clique sur la zone vide où tu dois te placer. Pas 2 dans la même zone, forme des triangles !";
-  
-  const field = document.getElementById('game-field');
-  const w=320, h=240;
-  const rows=level.grid[0], cols=level.grid[1];
-  const cellW=w/cols, cellH=h/rows;
-  
-  let svg = `<svg viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:380px;display:block;margin:0 auto;border-radius:8px;">`;
-  svg += `<rect width="${w}" height="${h}" fill="#1a6b2a" rx="8"/>`;
-  
-  // Grid lines
-  for(let r=0;r<=rows;r++) svg += `<line x1="0" y1="${r*cellH}" x2="${w}" y2="${r*cellH}" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>`;
-  for(let c=0;c<=cols;c++) svg += `<line x1="${c*cellW}" y1="0" x2="${c*cellW}" y2="${h}" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>`;
-  
-  // Occupied zones
-  const occupied = new Set();
-  level.teammates.forEach(t=>{
-    const key = t[0]+'-'+t[1];
-    occupied.add(key);
-    const cx=t[1]*cellW+cellW/2, cy=t[0]*cellH+cellH/2;
-    svg += `<circle cx="${cx}" cy="${cy}" r="14" fill="#D4A017" stroke="#fff" stroke-width="1.5"/>`;
+  var level=MOVEMENT_LEVELS[gameRound];
+  document.getElementById('game-header').textContent='🏃 Déplacement · Round '+(gameRound+1)+'/'+gameTotal;
+  document.getElementById('game-instruction').textContent="Ton coéquipier (⚽) a le ballon. Clique là où tu dois te déplacer pour recevoir.";
+  var field=document.getElementById('game-field'),w=300,h=320;
+  var svg=drawField(w,h);
+  svg+=drawP(level.carrier[0],level.carrier[1],'#D4A017','⚽',false,0);
+  svg+='<circle cx="'+(level.carrier[0]+10)+'" cy="'+(level.carrier[1]-10)+'" r="5" fill="#fff" stroke="#333" stroke-width="1"/>';
+  level.mates.forEach(function(t){svg+=drawP(t[0],t[1],'#D4A017','',false,0);});
+  level.opps.forEach(function(o){svg+=drawP(o[0],o[1],'#c0392b','',false,0);});
+  level.options.forEach(function(opt,i){
+    svg+='<circle cx="'+opt[0]+'" cy="'+opt[1]+'" r="16" fill="rgba(255,255,255,0.1)" stroke="rgba(255,255,255,0.5)" stroke-width="1.5" stroke-dasharray="4,3" class="game-click" data-idx="'+i+'" style="cursor:pointer"/>';
+    svg+='<text x="'+opt[0]+'" y="'+(opt[1]+4)+'" text-anchor="middle" fill="rgba(255,255,255,0.6)" font-size="11" font-weight="bold" style="pointer-events:none">'+(i+1)+'</text>';
   });
-  level.opponents.forEach(o=>{
-    const key = o[0]+'-'+o[1];
-    occupied.add(key);
-    const cx=o[1]*cellW+cellW/2, cy=o[0]*cellH+cellH/2;
-    svg += `<circle cx="${cx}" cy="${cy}" r="14" fill="#c0392b" stroke="#fff" stroke-width="1.5"/>`;
-  });
-  
-  // Empty clickable zones
-  for(let r=0;r<rows;r++){
-    for(let c=0;c<cols;c++){
-      if(!occupied.has(r+'-'+c)){
-        svg += `<rect x="${c*cellW+2}" y="${r*cellH+2}" width="${cellW-4}" height="${cellH-4}" fill="rgba(255,255,255,0.05)" rx="4" class="game-click" data-row="${r}" data-col="${c}" style="cursor:pointer"/>`;
-      }
-    }
-  }
-  
-  // Legend
-  svg += `<circle cx="15" cy="${h-12}" r="6" fill="#D4A017"/><text x="25" y="${h-8}" fill="#fff" font-size="9">Équipe</text>`;
-  svg += `<circle cx="85" cy="${h-12}" r="6" fill="#c0392b"/><text x="95" y="${h-8}" fill="#fff" font-size="9">Adversaires</text>`;
-  svg += `<rect x="155" y="${h-18}" width="12" height="12" fill="rgba(255,255,255,0.1)" rx="2"/><text x="172" y="${h-8}" fill="#fff" font-size="9">Zone libre</text>`;
-  
-  svg += '</svg>';
-  field.innerHTML = svg;
-  
-  // Timer
-  let timeLeft = 6;
-  const fb = document.getElementById('game-feedback');
-  fb.innerHTML = `<div class="activity-timer" id="game-timer">${timeLeft}</div>`;
-  
-  gameTimer = setInterval(()=>{
-    timeLeft--;
-    const t = document.getElementById('game-timer');
-    if(t){ t.textContent = timeLeft; if(timeLeft<=2) t.classList.add('urgent'); }
-    if(timeLeft<=0){
-      clearGameTimer();
-      showGameFeedback(false, -1, level.hint);
-    }
-  }, 1000);
-  
-  // Click handlers
-  field.querySelectorAll('.game-click').forEach(el=>{
-    el.addEventListener('click', function(){
-      clearGameTimer();
-      const r = parseInt(this.dataset.row), c = parseInt(this.dataset.col);
-      const correct = (r === level.correct[0] && c === level.correct[1]);
-      if(correct) gameScore++;
-      // Highlight correct zone
-      const cellW2=w/cols, cellH2=h/rows;
-      const cx=level.correct[1]*cellW2+cellW2/2, cy=level.correct[0]*cellH2+cellH2/2;
-      const svgEl = field.querySelector('svg');
-      if(svgEl){
-        const ns = 'http://www.w3.org/2000/svg';
-        const circle = document.createElementNS(ns,'circle');
-        circle.setAttribute('cx',cx); circle.setAttribute('cy',cy); circle.setAttribute('r','14');
-        circle.setAttribute('fill','#5FBE8B'); circle.setAttribute('stroke','#fff'); circle.setAttribute('stroke-width','2');
-        svgEl.appendChild(circle);
-        const txt = document.createElementNS(ns,'text');
-        txt.setAttribute('x',cx); txt.setAttribute('y',cy+4); txt.setAttribute('text-anchor','middle');
-        txt.setAttribute('fill','#fff'); txt.setAttribute('font-size','9'); txt.setAttribute('font-weight','bold');
-        txt.textContent = 'TOI'; svgEl.appendChild(txt);
-      }
-      showGameFeedback(correct, -1, level.hint);
-    });
-  });
+  svg+='</svg>';field.innerHTML=svg;
+  var timeLeft=7,fb=document.getElementById('game-feedback');
+  fb.innerHTML='<div class="activity-timer" id="game-timer">'+timeLeft+'</div>';
+  gameTimer=setInterval(function(){timeLeft--;var t=document.getElementById('game-timer');if(t){t.textContent=timeLeft;if(timeLeft<=2)t.classList.add('urgent');}if(timeLeft<=0){clearGameTimer();showGameFeedback(false,-1,level.hint);}},1000);
+  field.querySelectorAll('.game-click').forEach(function(el){el.addEventListener('click',function(){
+    clearGameTimer();var idx=parseInt(this.dataset.idx);var opt=level.options[idx];var correct=opt[2];
+    if(correct)gameScore++;
+    var svgEl=field.querySelector('svg');var ns='http://www.w3.org/2000/svg';
+    var correctOpt=level.options.find(function(o){return o[2];});
+    var line=document.createElementNS(ns,'line');line.setAttribute('x1',level.carrier[0]);line.setAttribute('y1',level.carrier[1]);line.setAttribute('x2',correctOpt[0]);line.setAttribute('y2',correctOpt[1]);line.setAttribute('stroke','#5FBE8B');line.setAttribute('stroke-width','2');svgEl.appendChild(line);
+    var c=document.createElementNS(ns,'circle');c.setAttribute('cx',correctOpt[0]);c.setAttribute('cy',correctOpt[1]);c.setAttribute('r','14');c.setAttribute('fill','#5FBE8B');c.setAttribute('stroke','#fff');c.setAttribute('stroke-width','2');svgEl.appendChild(c);
+    var txt=document.createElementNS(ns,'text');txt.setAttribute('x',correctOpt[0]);txt.setAttribute('y',correctOpt[1]+4);txt.setAttribute('text-anchor','middle');txt.setAttribute('fill','#fff');txt.setAttribute('font-size','8');txt.setAttribute('font-weight','bold');txt.textContent='TOI';svgEl.appendChild(txt);
+    showGameFeedback(correct,-1,correct?level.hint:opt[3]+'. '+level.hint);
+  });});
 }
 
-// ===== TROUVE LE TRIANGLE =====
-const TRIANGLE_LEVELS = [
-  { p1:[80,200], p2:[220,200], options:[[150,80,true],[150,200,false],[280,140,false],[20,140,false]], hint:"Le triangle équilatéral offre les meilleurs angles de passe." },
-  { p1:[60,100], p2:[60,220], options:[[200,160,true],[60,160,false],[150,50,false],[150,270,false]], hint:"Place-toi en face pour créer un triangle large et ouvert." },
-  { p1:[100,80], p2:[240,180], options:[[80,220,true],[170,130,false],[280,80,false],[240,80,false]], hint:"Le point qui crée le plus grand triangle est le meilleur." },
-  { p1:[150,60], p2:[260,200], options:[[50,200,true],[150,200,false],[260,60,false],[200,130,false]], hint:"Cherche le point le plus éloigné des 2 joueurs pour maximiser l'espace." },
-  { p1:[80,150], p2:[220,80], options:[[220,240,true],[150,115,false],[80,80,false],[280,150,false]], hint:"La position en bas à droite crée un triangle qui couvre tout le terrain." },
-  { p1:[100,220], p2:[200,220], options:[[150,100,true],[150,220,false],[50,220,false],[250,220,false]], hint:"Monte pour créer de la profondeur dans le triangle." },
-  { p1:[60,120], p2:[180,60], options:[[200,200,true],[120,90,false],[60,60,false],[180,120,false]], hint:"Le triangle doit couvrir un maximum d'espace." },
-  { p1:[240,100], p2:[240,220], options:[[80,160,true],[240,160,false],[180,100,false],[180,220,false]], hint:"Place-toi du côté opposé pour étirer le jeu." }
+// ===== 3ÈME HOMME =====
+const THIRDMAN_LEVELS = [
+  {A:[150,280],B:[150,200],cands:[[250,120,true],[50,250,false],[250,250,false],[80,200,false]],oppB:[[100,180]],hint:"A passe à B. B est pressé à gauche → il remet en une touche à droite vers C qui est lancé vers le but. C est le troisième homme."},
+  {A:[50,250],B:[150,180],cands:[[250,100,true],[50,180,false],[150,250,false],[250,250,false]],oppB:[[120,160]],hint:"A joue à B au milieu. Le défenseur presse B par la gauche → B dévie vers C à droite qui attaque le but."},
+  {A:[250,260],B:[150,200],cands:[[80,120,true],[250,200,false],[150,260,false],[200,260,false]],oppB:[[200,190]],hint:"A joue depuis la droite vers B. Le défenseur vient de la droite → B joue vers la gauche pour C. La passe A→B a attiré le défenseur et libéré C."},
+  {A:[150,280],B:[80,200],cands:[[150,100,true],[80,280,false],[250,250,false],[40,280,false]],oppB:[[60,170]],hint:"A joue à B côté gauche. B est pressé → il remet au centre pour C qui se retrouve face au but."},
+  {A:[50,200],B:[150,150],cands:[[230,70,true],[50,150,false],[150,200,false],[250,200,false]],oppB:[[180,140]],hint:"A joue à B. Le pressing vient de la droite → B dévie vers C lancé en profondeur côté but."},
+  {A:[250,230],B:[180,160],cands:[[100,80,true],[250,160,false],[180,230,false],[100,230,false]],oppB:[[150,140]],hint:"B est pressé au centre → il dévie vers C qui attaque l'espace en profondeur vers le but."},
+  {A:[80,260],B:[80,180],cands:[[180,100,true],[80,100,false],[200,200,false],[30,200,false]],oppB:[[50,160]],hint:"B est pressé dans le couloir → il décale vers C à l'intérieur en position de frappe."},
+  {A:[150,260],B:[250,190],cands:[[150,100,true],[150,190,false],[250,260,false],[50,190,false]],oppB:[[230,170]],hint:"A renverse vers B. B est pressé → il remet au centre pour C qui attaque le but. A→B→C a éliminé 2 lignes."}
 ];
 
 function renderTriangle(){
-  const level = TRIANGLE_LEVELS[gameRound];
-  const header = document.getElementById('game-header');
-  header.textContent = `🔺 Triangle · Niveau ${gameRound+1}/${gameTotal}`;
-  document.getElementById('game-instruction').textContent = "2 coéquipiers sont placés. Clique sur la position qui crée le meilleur triangle de passes.";
-  
-  const field = document.getElementById('game-field');
-  const w=300, h=300;
-  
-  let svg = `<svg viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:350px;display:block;margin:0 auto;border-radius:8px;">`;
-  svg += `<rect width="${w}" height="${h}" fill="#1a6b2a" rx="8"/>`;
-  // Field lines
-  svg += `<rect x="15" y="15" width="${w-30}" height="${h-30}" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="1"/>`;
-  svg += `<line x1="15" y1="${h/2}" x2="${w-15}" y2="${h/2}" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>`;
-  
-  // Existing players
-  svg += `<circle cx="${level.p1[0]}" cy="${level.p1[1]}" r="16" fill="#D4A017" stroke="#fff" stroke-width="2"/>`;
-  svg += `<circle cx="${level.p2[0]}" cy="${level.p2[1]}" r="16" fill="#D4A017" stroke="#fff" stroke-width="2"/>`;
-  // Line between them
-  svg += `<line x1="${level.p1[0]}" y1="${level.p1[1]}" x2="${level.p2[0]}" y2="${level.p2[1]}" stroke="rgba(212,160,23,0.3)" stroke-width="2" stroke-dasharray="5,5"/>`;
-  
-  // Options (clickable)
-  level.options.forEach((opt,i)=>{
-    svg += `<circle cx="${opt[0]}" cy="${opt[1]}" r="15" fill="rgba(255,255,255,0.12)" stroke="rgba(255,255,255,0.4)" stroke-width="1.5" stroke-dasharray="4,3" class="game-click" data-idx="${i}" style="cursor:pointer"/>`;
-    svg += `<text x="${opt[0]}" y="${opt[1]+4}" text-anchor="middle" fill="rgba(255,255,255,0.5)" font-size="12" font-weight="bold" style="pointer-events:none">${i+1}</text>`;
+  var level=THIRDMAN_LEVELS[gameRound];
+  document.getElementById('game-header').textContent='🔺 3ème homme · Round '+(gameRound+1)+'/'+gameTotal;
+  document.getElementById('game-instruction').textContent="A (⚽) passe à B. B remet en une touche. Qui est le 3ème homme (C) ?";
+  var field=document.getElementById('game-field'),w=300,h=320;
+  var svg=drawField(w,h);
+  svg+='<line x1="'+level.A[0]+'" y1="'+level.A[1]+'" x2="'+level.B[0]+'" y2="'+level.B[1]+'" stroke="rgba(212,160,23,0.5)" stroke-width="2" stroke-dasharray="6,4"/>';
+  svg+='<text x="'+((level.A[0]+level.B[0])/2+12)+'" y="'+((level.A[1]+level.B[1])/2)+'" fill="rgba(255,255,255,0.4)" font-size="8" font-family="Arial">passe</text>';
+  level.oppB.forEach(function(o){svg+=drawP(o[0],o[1],'#c0392b','DEF',false,0);});
+  svg+=drawP(level.A[0],level.A[1],'#D4A017','A',false,0);
+  svg+='<circle cx="'+(level.A[0]+10)+'" cy="'+(level.A[1]-10)+'" r="5" fill="#fff" stroke="#333" stroke-width="1"/>';
+  svg+=drawP(level.B[0],level.B[1],'#D4A017','B',false,0);
+  level.cands.forEach(function(c,i){
+    svg+='<circle cx="'+c[0]+'" cy="'+c[1]+'" r="15" fill="rgba(255,255,255,0.1)" stroke="rgba(255,255,255,0.5)" stroke-width="1.5" stroke-dasharray="4,3" class="game-click" data-idx="'+i+'" style="cursor:pointer"/>';
+    svg+='<text x="'+c[0]+'" y="'+(c[1]+4)+'" text-anchor="middle" fill="rgba(255,255,255,0.6)" font-size="9" font-weight="bold" style="pointer-events:none">C?</text>';
   });
-  
-  svg += '</svg>';
-  field.innerHTML = svg;
-  
-  // Timer
-  let timeLeft = 6;
-  const fb = document.getElementById('game-feedback');
-  fb.innerHTML = `<div class="activity-timer" id="game-timer">${timeLeft}</div>`;
-  
-  gameTimer = setInterval(()=>{
-    timeLeft--;
-    const t = document.getElementById('game-timer');
-    if(t){ t.textContent = timeLeft; if(timeLeft<=2) t.classList.add('urgent'); }
-    if(timeLeft<=0){
-      clearGameTimer();
-      showTriangleFeedback(false, level);
-    }
-  }, 1000);
-  
-  // Click handlers
-  field.querySelectorAll('.game-click').forEach(el=>{
-    el.addEventListener('click', function(){
-      clearGameTimer();
-      const idx = parseInt(this.dataset.idx);
-      const correct = level.options[idx][2];
-      if(correct) gameScore++;
-      showTriangleFeedback(correct, level);
-    });
-  });
+  svg+='</svg>';field.innerHTML=svg;
+  var timeLeft=8,fb=document.getElementById('game-feedback');
+  fb.innerHTML='<div class="activity-timer" id="game-timer">'+timeLeft+'</div>';
+  gameTimer=setInterval(function(){timeLeft--;var t=document.getElementById('game-timer');if(t){t.textContent=timeLeft;if(timeLeft<=2)t.classList.add('urgent');}if(timeLeft<=0){clearGameTimer();showTMFeedback(false,level);}},1000);
+  field.querySelectorAll('.game-click').forEach(function(el){el.addEventListener('click',function(){
+    clearGameTimer();var idx=parseInt(this.dataset.idx);var correct=level.cands[idx][2];if(correct)gameScore++;showTMFeedback(correct,level);
+  });});
 }
 
-function showTriangleFeedback(correct, level){
-  // Draw the correct triangle on the field
-  const field = document.getElementById('game-field');
-  const svgEl = field.querySelector('svg');
-  if(svgEl){
-    const ns = 'http://www.w3.org/2000/svg';
-    const correctOpt = level.options.find(o=>o[2]);
-    if(correctOpt){
-      // Triangle lines
-      const pts = [level.p1, level.p2, [correctOpt[0],correctOpt[1]]];
-      for(let i=0;i<3;i++){
-        const line = document.createElementNS(ns,'line');
-        line.setAttribute('x1',pts[i][0]); line.setAttribute('y1',pts[i][1]);
-        line.setAttribute('x2',pts[(i+1)%3][0]); line.setAttribute('y2',pts[(i+1)%3][1]);
-        line.setAttribute('stroke','#5FBE8B'); line.setAttribute('stroke-width','2');
-        svgEl.appendChild(line);
-      }
-      // Correct position marker
-      const c = document.createElementNS(ns,'circle');
-      c.setAttribute('cx',correctOpt[0]); c.setAttribute('cy',correctOpt[1]); c.setAttribute('r','15');
-      c.setAttribute('fill','#5FBE8B'); c.setAttribute('stroke','#fff'); c.setAttribute('stroke-width','2');
-      svgEl.appendChild(c);
-      const t = document.createElementNS(ns,'text');
-      t.setAttribute('x',correctOpt[0]); t.setAttribute('y',correctOpt[1]+4); t.setAttribute('text-anchor','middle');
-      t.setAttribute('fill','#fff'); t.setAttribute('font-size','9'); t.setAttribute('font-weight','bold');
-      t.textContent='TOI'; svgEl.appendChild(t);
-    }
+function showTMFeedback(correct,level){
+  var field=document.getElementById('game-field');var svgEl=field.querySelector('svg');
+  if(svgEl){var ns='http://www.w3.org/2000/svg';var cc=level.cands.find(function(c){return c[2];});
+    var line=document.createElementNS(ns,'line');line.setAttribute('x1',level.B[0]);line.setAttribute('y1',level.B[1]);line.setAttribute('x2',cc[0]);line.setAttribute('y2',cc[1]);line.setAttribute('stroke','#5FBE8B');line.setAttribute('stroke-width','2.5');svgEl.appendChild(line);
+    var c=document.createElementNS(ns,'circle');c.setAttribute('cx',cc[0]);c.setAttribute('cy',cc[1]);c.setAttribute('r','14');c.setAttribute('fill','#5FBE8B');c.setAttribute('stroke','#fff');c.setAttribute('stroke-width','2');svgEl.appendChild(c);
+    var txt=document.createElementNS(ns,'text');txt.setAttribute('x',cc[0]);txt.setAttribute('y',cc[1]+4);txt.setAttribute('text-anchor','middle');txt.setAttribute('fill','#fff');txt.setAttribute('font-size','9');txt.setAttribute('font-weight','bold');txt.textContent='C';svgEl.appendChild(txt);
   }
-  showGameFeedback(correct, -1, level.hint);
+  showGameFeedback(correct,-1,level.hint);
 }
 
 // ===== SHARED FEEDBACK =====
